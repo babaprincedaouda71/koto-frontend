@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import Groupe from './pages/Groupe'
+import Rejoindre from "./pages/Rejoindre.jsx";
 
 const ProtectedRoute = ({ children }) => {
   const token = useAuthStore((state) => state.token)
@@ -24,6 +25,9 @@ const App = () => {
             <ProtectedRoute><Groupe /></ProtectedRoute>
           } />
           <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="/rejoindre/:token" element={
+            <ProtectedRoute><Rejoindre /></ProtectedRoute>
+          } />
         </Routes>
       </BrowserRouter>
   )
