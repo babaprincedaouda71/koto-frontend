@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import useAuthStore from './store/authStore'
 
 import Login from './pages/Login'
@@ -9,7 +9,8 @@ import Rejoindre from "./pages/Rejoindre.jsx";
 
 const ProtectedRoute = ({ children }) => {
   const token = useAuthStore((state) => state.token)
-  return token ? children : <Navigate to="/login" replace />
+  const location = useLocation()
+  return token ? children : <Navigate to="/login" state={{ from: location }} replace />
 }
 
 const App = () => {

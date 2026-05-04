@@ -16,9 +16,13 @@ const Rejoindre = () => {
                 setTimeout(() => navigate('/dashboard'), 2000)
             } catch (err) {
                 const msg = err.response?.data?.message || 'Lien invalide ou expiré'
-                setMessage(msg)
-                setStatut('erreur')
-                setTimeout(() => navigate('/dashboard'), 3000)
+                if (msg.includes('déjà membre')) {
+                    setStatut('succes')
+                } else {
+                    setMessage(msg)
+                    setStatut('erreur')
+                }
+                setTimeout(() => navigate('/dashboard'), 2000)
             }
         }
         rejoindre()

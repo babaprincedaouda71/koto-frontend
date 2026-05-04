@@ -82,6 +82,24 @@ const Groupe = () => {
         }
     }
 
+    const handleDeclarerPaiement = async (paiementId) => {
+        try {
+            await paiementService.declarerPaiement(paiementId)
+            fetchPaiements()
+        } catch (err) {
+            console.error(err)
+        }
+    }
+
+    const handleInvaliderPaiement = async (paiementId) => {
+        try {
+            await paiementService.invaliderPaiement(paiementId)
+            fetchPaiements()
+        } catch (err) {
+            console.error(err)
+        }
+    }
+
     const handleRappel = async (paiementId) => {
         try {
             const res = await paiementService.envoyerRappel(paiementId)
@@ -96,11 +114,11 @@ const Groupe = () => {
         alert('Lien copié !')
     }
 
-    const isAdmin = groupe?.adminNom && user &&
-        groupe.adminPrenom === user.prenom && groupe.adminNom === user.nom
+    const isAdmin = groupe?.adminId === user?.id
 
     const impayes = paiements.filter(p => p.statut !== 'PAYE')
     const payes = paiements.filter(p => p.statut === 'PAYE')
+    const monPaiement = paiements.find(p => p.userId === user?.id)
 
     if (loading) {
         return (
@@ -130,11 +148,18 @@ const Groupe = () => {
                     ← Retour
                 </button>
                 <h1 className="text-lg font-semibold text-gray-800">{groupe.nom}</h1>
-                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ml-auto ${
-                    groupe.statut === 'ACTIF' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'
-                }`}>
-          {groupe.statut}
-        </span>
+                <div className="ml-auto flex items-center gap-2">
+                    {isAdmin && (
+                        <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">
+                            Admin
+                        </span>
+                    )}
+                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                        groupe.statut === 'ACTIF' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'
+                    }`}>
+                        {groupe.statut}
+                    </span>
+                </div>
             </nav>
 
             <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
@@ -196,22 +221,72 @@ const Groupe = () => {
               </span>
                         </div>
                     </div>
+                ) : isAdmin ? (
+                    <div className="bg-white rounded-2xl border border-amber-100 p-6 text-center">
+                        <p className="text-gray-500 text-sm mb-4">Aucun cycle en cours</p>
+                        {error && (
+                            <p className="text-red-500 text-sm mb-3">{error}</p>
+                        )}
+                        <button
+                            onClick={handleDemarrerCycle}
+                            disabled={demarrage}
+                            className="bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors"
+                        >
+                            {demarrage ? 'Démarrage...' : 'Démarrer le premier cycle'}
+                        </button>
+                    </div>
                 ) : (
-                    isAdmin && (
-                        <div className="bg-white rounded-2xl border border-amber-100 p-6 text-center">
-                            <p className="text-gray-500 text-sm mb-4">Aucun cycle en cours</p>
-                            {error && (
-                                <p className="text-red-500 text-sm mb-3">{error}</p>
-                            )}
-                            <button
-                                onClick={handleDemarrerCycle}
-                                disabled={demarrage}
-                                className="bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300 text-white font-medium px-6 py-2.5 rounded-lg text-sm transition-colors"
-                            >
-                                {demarrage ? 'Démarrage...' : 'Démarrer le premier cycle'}
-                            </button>
+                    <div className="bg-white rounded-2xl border border-amber-100 p-6 text-center">
+                        <p className="text-gray-500 text-sm">En attente du démarrage du prochain cycle.</p>
+                        <p className="text-xs text-gray-400 mt-1">L'administrateur du groupe lancera bientôt le cycle.</p>
+                    </div>
+                )}
+
+                {/* Mon paiement (vue membre) */}
+                {cycleActif && !isAdmin && monPaiement && (
+                    <div className={`rounded-2xl border p-5 ${
+                        monPaiement.statut === 'PAYE'
+                            ? 'bg-green-50 border-green-200'
+                            : monPaiement.statut === 'EN_RETARD'
+                                ? 'bg-red-50 border-red-200'
+                                : 'bg-amber-50 border-amber-200'
+                    }`}>
+                        <p className="text-xs font-medium text-gray-500 mb-1">Mon paiement ce cycle</p>
+                        <div className="flex items-center justify-between">
+                            <p className={`text-lg font-semibold ${
+                                monPaiement.statut === 'PAYE'
+                                    ? 'text-green-700'
+                                    : monPaiement.statut === 'EN_RETARD'
+                                        ? 'text-red-700'
+                                        : 'text-amber-700'
+                            }`}>
+                                {monPaiement.statut === 'PAYE'
+                                    ? 'Payé'
+                                    : monPaiement.statut === 'EN_RETARD'
+                                        ? 'En retard'
+                                        : 'En attente'}
+                            </p>
+                            <p className="text-sm font-medium text-gray-700">
+                                {monPaiement.montant?.toLocaleString()} {groupe.devise}
+                            </p>
                         </div>
-                    )
+                        {monPaiement.statut === 'PAYE' && monPaiement.datePaiement && (
+                            <p className="text-xs text-green-600 mt-1">
+                                Confirmé le {new Date(monPaiement.datePaiement).toLocaleDateString('fr-FR')}
+                            </p>
+                        )}
+                        {monPaiement.statut === 'DECLARE' && (
+                            <p className="text-xs text-blue-600 mt-1">En attente de validation par l'admin</p>
+                        )}
+                        {(monPaiement.statut === 'EN_ATTENTE' || monPaiement.statut === 'EN_RETARD') && (
+                            <button
+                                onClick={() => handleDeclarerPaiement(monPaiement.id)}
+                                className="mt-3 w-full bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                            >
+                                J'ai payé
+                            </button>
+                        )}
+                    </div>
                 )}
 
                 {/* Onglets */}
@@ -240,30 +315,42 @@ const Groupe = () => {
                         {/* Aperçu */}
                         {onglet === 'apercu' && (
                             <div className="mt-4 grid gap-3">
-                                {paiements.map(p => (
-                                    <div key={p.id} className="bg-white rounded-xl border border-amber-100 px-5 py-4 flex items-center justify-between">
-                                        <div>
-                                            <p className="font-medium text-gray-800 text-sm">
-                                                {p.membrePrenom} {p.membreNom}
-                                            </p>
-                                            <p className="text-xs text-gray-400 mt-0.5">{p.telephone}</p>
+                                {paiements.map(p => {
+                                    const estMoi = p.userId === user?.id
+                                    return (
+                                        <div key={p.id} className={`bg-white rounded-xl border px-5 py-4 flex items-center justify-between ${
+                                            estMoi ? 'border-amber-300 ring-1 ring-amber-200' : 'border-amber-100'
+                                        }`}>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-medium text-gray-800 text-sm">
+                                                        {p.membrePrenom} {p.membreNom}
+                                                    </p>
+                                                    {estMoi && (
+                                                        <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">Vous</span>
+                                                    )}
+                                                </div>
+                                                <p className="text-xs text-gray-400 mt-0.5">{p.telephone}</p>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-sm font-medium text-gray-700">
+                                                    {p.montant?.toLocaleString()} {groupe.devise}
+                                                </span>
+                                                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                                                    p.statut === 'PAYE'
+                                                        ? 'bg-green-50 text-green-700'
+                                                        : p.statut === 'EN_RETARD'
+                                                            ? 'bg-red-50 text-red-700'
+                                                            : p.statut === 'DECLARE'
+                                                                ? 'bg-blue-50 text-blue-700'
+                                                                : 'bg-amber-50 text-amber-700'
+                                                }`}>
+                                                    {p.statut === 'PAYE' ? 'Payé' : p.statut === 'EN_RETARD' ? 'En retard' : p.statut === 'DECLARE' ? 'Déclaré' : 'En attente'}
+                                                </span>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium text-gray-700">
-                        {p.montant?.toLocaleString()} {groupe.devise}
-                      </span>
-                                            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                                                p.statut === 'PAYE'
-                                                    ? 'bg-green-50 text-green-700'
-                                                    : p.statut === 'EN_RETARD'
-                                                        ? 'bg-red-50 text-red-700'
-                                                        : 'bg-amber-50 text-amber-700'
-                                            }`}>
-                        {p.statut === 'PAYE' ? 'Payé' : p.statut === 'EN_RETARD' ? 'En retard' : 'En attente'}
-                      </span>
-                                        </div>
-                                    </div>
-                                ))}
+                                    )
+                                })}
                             </div>
                         )}
 
@@ -275,39 +362,66 @@ const Groupe = () => {
                                         <p className="text-green-600 font-medium text-sm">Tout le monde a payé !</p>
                                     </div>
                                 ) : (
-                                    impayes.map(p => (
-                                        <div key={p.id} className="bg-white rounded-xl border border-red-100 px-5 py-4">
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <p className="font-medium text-gray-800 text-sm">
-                                                        {p.membrePrenom} {p.membreNom}
-                                                    </p>
-                                                    <p className="text-xs text-gray-400 mt-0.5">
-                                                        {p.telephone} · {p.nombreRappels} rappel(s) envoyé(s)
+                                    impayes.map(p => {
+                                        const estMoi = p.userId === user?.id
+                                        return (
+                                            <div key={p.id} className="bg-white rounded-xl border border-red-100 px-5 py-4">
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="font-medium text-gray-800 text-sm">
+                                                                {p.membrePrenom} {p.membreNom}
+                                                            </p>
+                                                            {estMoi && (
+                                                                <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">Vous</span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-xs text-gray-400 mt-0.5">
+                                                            {p.telephone} · {p.nombreRappels} rappel(s) envoyé(s)
+                                                        </p>
+                                                    </div>
+                                                    <p className="text-sm font-semibold text-gray-800">
+                                                        {p.montant?.toLocaleString()} {groupe.devise}
                                                     </p>
                                                 </div>
-                                                <p className="text-sm font-semibold text-gray-800">
-                                                    {p.montant?.toLocaleString()} {groupe.devise}
-                                                </p>
+                                                {isAdmin && (
+                                                    <div className="flex gap-2 mt-3">
+                                                        {p.statut === 'DECLARE' ? (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => handleConfirmerPaiement(p.id)}
+                                                                    className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-medium py-2 rounded-lg transition-colors"
+                                                                >
+                                                                    Valider
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleInvaliderPaiement(p.id)}
+                                                                    className="flex-1 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-medium py-2 rounded-lg transition-colors"
+                                                                >
+                                                                    Invalider
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => handleConfirmerPaiement(p.id)}
+                                                                    className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-medium py-2 rounded-lg transition-colors"
+                                                                >
+                                                                    Confirmer paiement
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleRappel(p.id)}
+                                                                    className="flex-1 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-medium py-2 rounded-lg transition-colors"
+                                                                >
+                                                                    Rappel WhatsApp
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
-                                            {isAdmin && (
-                                                <div className="flex gap-2 mt-3">
-                                                    <button
-                                                        onClick={() => handleConfirmerPaiement(p.id)}
-                                                        className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-medium py-2 rounded-lg transition-colors"
-                                                    >
-                                                        Confirmer paiement
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleRappel(p.id)}
-                                                        className="flex-1 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-medium py-2 rounded-lg transition-colors"
-                                                    >
-                                                        Rappel WhatsApp
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))
+                                        )
+                                    })
                                 )}
                             </div>
                         )}
@@ -320,23 +434,31 @@ const Groupe = () => {
                                         <p className="text-gray-400 text-sm">Aucun paiement confirmé pour l'instant</p>
                                     </div>
                                 ) : (
-                                    payes.map(p => (
-                                        <div key={p.id} className="bg-white rounded-xl border border-green-100 px-5 py-4 flex items-center justify-between">
-                                            <div>
-                                                <p className="font-medium text-gray-800 text-sm">
-                                                    {p.membrePrenom} {p.membreNom}
-                                                </p>
-                                                <p className="text-xs text-gray-400 mt-0.5">
-                                                    Payé le {p.datePaiement
-                                                    ? new Date(p.datePaiement).toLocaleDateString('fr-FR')
-                                                    : '—'}
-                                                </p>
+                                    payes.map(p => {
+                                        const estMoi = p.userId === user?.id
+                                        return (
+                                            <div key={p.id} className="bg-white rounded-xl border border-green-100 px-5 py-4 flex items-center justify-between">
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="font-medium text-gray-800 text-sm">
+                                                            {p.membrePrenom} {p.membreNom}
+                                                        </p>
+                                                        {estMoi && (
+                                                            <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">Vous</span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-xs text-gray-400 mt-0.5">
+                                                        Payé le {p.datePaiement
+                                                            ? new Date(p.datePaiement).toLocaleDateString('fr-FR')
+                                                            : '—'}
+                                                    </p>
+                                                </div>
+                                                <span className="text-sm font-semibold text-green-700">
+                                                    {p.montant?.toLocaleString()} {groupe.devise}
+                                                </span>
                                             </div>
-                                            <span className="text-sm font-semibold text-green-700">
-                        {p.montant?.toLocaleString()} {groupe.devise}
-                      </span>
-                                        </div>
-                                    ))
+                                        )
+                                    })
                                 )}
                             </div>
                         )}

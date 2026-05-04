@@ -21,6 +21,16 @@ const paiementService = {
         return response.data
     },
 
+    declarerPaiement: async (paiementId) => {
+        const response = await api.patch(`/api/paiements/${paiementId}/declarer`)
+        return response.data
+    },
+
+    invaliderPaiement: async (paiementId) => {
+        const response = await api.patch(`/api/paiements/${paiementId}/invalider`)
+        return response.data
+    },
+
     getPaiementsMembre: async (membreId) => {
         const response = await api.get(`/api/membres/${membreId}/paiements`)
         return response.data
