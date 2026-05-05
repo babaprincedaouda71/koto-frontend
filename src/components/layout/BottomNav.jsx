@@ -1,19 +1,20 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import useAuthStore from '../../store/authStore'
+import useAuth from '../../hooks/useAuth'
 
 const BottomNav = ({ onAction, actionLabel = 'Nouveau groupe' }) => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, logout } = useAuthStore()
+  const { user } = useAuthStore()
+  const { handleLogout } = useAuth()
   const [showProfile, setShowProfile] = useState(false)
 
   const isHome = location.pathname === '/dashboard'
 
-  const handleLogout = () => {
+  const onLogout = () => {
     setShowProfile(false)
-    logout()
-    navigate('/login')
+    handleLogout()
   }
 
   return (
@@ -37,7 +38,7 @@ const BottomNav = ({ onAction, actionLabel = 'Nouveau groupe' }) => {
               </div>
             </div>
             <button
-              onClick={handleLogout}
+              onClick={onLogout}
               className="w-full text-left text-sm text-red-600 font-medium py-3 border-t border-gray-100 active:opacity-70"
             >
               Déconnexion

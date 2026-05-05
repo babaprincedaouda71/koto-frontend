@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useAuthStore from '../store/authStore'
+import useAuth from '../hooks/useAuth'
 import groupeService from '../services/groupe.service'
 import BottomNav from '../components/layout/BottomNav'
 
 const Dashboard = () => {
-    const { user, logout } = useAuthStore()
+    const { user } = useAuthStore()
+    const { handleLogout } = useAuth()
     const navigate = useNavigate()
     const [groupes, setGroupes] = useState([])
     const [loading, setLoading] = useState(true)
@@ -59,11 +61,6 @@ const Dashboard = () => {
         }
     }
 
-    const handleLogout = () => {
-        logout()
-        navigate('/login')
-    }
-
     const devises = ['XOF', 'XAF', 'MAD', 'EUR', 'USD', 'GNF', 'SLL']
 
     return (
@@ -83,6 +80,7 @@ const Dashboard = () => {
                     >
                         Déconnexion
                     </button>
+
                 </div>
                 {/* Desktop: new group button */}
                 <button

@@ -3,29 +3,41 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import authService from '../services/auth.service'
 
 const useAuth = () => {
-    const { login, logout, user, token } = useAuthStore()
+    const { setUser, setInitialized, logout, user } = useAuthStore()
     const navigate = useNavigate()
     const location = useLocation()
 
     const handleLogin = async (credentials) => {
         const response = await authService.login(credentials)
-        const { token, ...userData } = response.data
-        login(token, userData)
+        setUser(response.data)
         const destination = location.state?.from?.pathname || '/dashboard'
         navigate(destination, { replace: true })
     }
 
-    const handleLogout = () => {
-        logout()
-        navigate('/login')
+    const handleLogout = async () => {
+        try {
+            await authService.logout()
+        } finally {
+            logout()
+            navigate('/login', { replace: true })
+        }
+    }
+
+    const initAuth = async () => {
+        try {
+            const response = await authService.me()
+            setUser(response.data)
+        } catch {
+            setInitialized()
+        }
     }
 
     return {
         user,
-        token,
         handleLogin,
         handleLogout,
-        isAuthenticated: !!token,
+        initAuth,
+        isAuthenticated: !!user,
     }
 }
 

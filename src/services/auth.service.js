@@ -10,6 +10,15 @@ const authService = {
         const response = await api.post('/api/auth/login', data)
         return response.data
     },
+
+    logout: async () => {
+        await api.post('/api/auth/logout')
+    },
+
+    me: async () => {
+        const response = await api.get('/api/auth/me')
+        return response.data
+    },
 }
 
 export default authService
