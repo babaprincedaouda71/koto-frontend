@@ -24,6 +24,8 @@ const Dashboard = () => {
 
     useEffect(() => {
         fetchGroupes()
+        const interval = setInterval(fetchGroupes, 30000)
+        return () => clearInterval(interval)
     }, [])
 
     const fetchGroupes = async () => {

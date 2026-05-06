@@ -4,6 +4,7 @@ import useAuthStore from '../store/authStore'
 import groupeService from '../services/groupe.service'
 import cycleService from '../services/cycle.service'
 import paiementService from '../services/paiement.service'
+import membreService from '../services/membre.service'
 import Toast from '../components/ui/Toast'
 
 const Groupe = () => {
@@ -14,9 +15,12 @@ const Groupe = () => {
     const [groupe, setGroupe] = useState(null)
     const [cycleActif, setCycleActif] = useState(null)
     const [paiements, setPaiements] = useState([])
+    const [demandesEnAttente, setDemandesEnAttente] = useState([])
     const [lienInvitation, setLienInvitation] = useState(null)
     const [loading, setLoading] = useState(true)
     const [demarrage, setDemarrage] = useState(false)
+    const [showCloture, setShowCloture] = useState(false)
+    const [cloture, setCloture] = useState(false)
     const [error, setError] = useState(null)
     const [onglet, setOnglet] = useState('apercu')
     const [toast, setToast] = useState(null)
@@ -27,6 +31,8 @@ const Groupe = () => {
 
     useEffect(() => {
         fetchData()
+        const interval = setInterval(fetchData, 10000)
+        return () => clearInterval(interval)
     }, [id])
 
     const fetchData = async () => {
@@ -35,13 +41,26 @@ const Groupe = () => {
                 groupeService.getGroupe(id),
                 cycleService.getCycleActif(id),
             ])
-            if (groupeRes.status === 'fulfilled') setGroupe(groupeRes.value.data)
+            if (groupeRes.status === 'fulfilled') {
+                const g = groupeRes.value.data
+                setGroupe(g)
+                if (g.adminId === user?.id) fetchDemandesEnAttente()
+            }
             if (cycleRes.status === 'fulfilled') {
                 setCycleActif(cycleRes.value.data)
                 fetchPaiements()
             }
         } finally {
             setLoading(false)
+        }
+    }
+
+    const fetchDemandesEnAttente = async () => {
+        try {
+            const res = await membreService.getDemandesEnAttente(id)
+            setDemandesEnAttente(res.data.data || [])
+        } catch {
+            // silencieux
         }
     }
 
@@ -102,6 +121,41 @@ const Groupe = () => {
             fetchPaiements()
         } catch {
             showToast('Impossible d\'invalider le paiement', 'error')
+        }
+    }
+
+    const handleCloturerCycle = async () => {
+        setCloture(true)
+        try {
+            await cycleService.cloturerCycle(id, cycleActif.id)
+            setShowCloture(false)
+            fetchData()
+            showToast('Cycle clôturé avec succès')
+        } catch (err) {
+            showToast(err.response?.data?.message || 'Impossible de clôturer', 'error')
+        } finally {
+            setCloture(false)
+        }
+    }
+
+    const handleApprouver = async (membreId) => {
+        try {
+            await membreService.approuver(id, membreId)
+            fetchDemandesEnAttente()
+            fetchData()
+            showToast('Membre approuvé')
+        } catch (err) {
+            showToast(err.response?.data?.message || 'Impossible d\'approuver', 'error')
+        }
+    }
+
+    const handleRejeter = async (membreId) => {
+        try {
+            await membreService.rejeter(id, membreId)
+            fetchDemandesEnAttente()
+            showToast('Demande rejetée')
+        } catch (err) {
+            showToast(err.response?.data?.message || 'Impossible de rejeter', 'error')
         }
     }
 
@@ -208,6 +262,59 @@ const Groupe = () => {
                 </div>
 
                 {/* Cycle actif */}
+                {/* Modale confirmation clôture */}
+                {showCloture && cycleActif && (
+                    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
+                        <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+                            <h3 className="font-bold text-gray-800 text-base mb-1">Clôturer le cycle {cycleActif.numeroCycle}</h3>
+                            <p className="text-sm text-gray-500 mb-4">
+                                Confirmez que vous avez versé le pot au bénéficiaire.
+                            </p>
+
+                            <div className="bg-amber-50 rounded-xl p-4 mb-4 space-y-2">
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-500">Bénéficiaire</span>
+                                    <span className="font-semibold text-amber-700">{cycleActif.beneficiairePrenom} {cycleActif.beneficiaireNom}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-500">Montant collecté</span>
+                                    <span className="font-semibold text-gray-800">
+                                        {(payes.length * groupe.montantCotisation).toLocaleString()} {groupe.devise}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-500">Paiements confirmés</span>
+                                    <span className={`font-semibold ${payes.length < cycleActif.totalMembres - 1 ? 'text-red-600' : 'text-green-600'}`}>
+                                        {payes.length} / {cycleActif.totalMembres - 1}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {payes.length < cycleActif.totalMembres - 1 && (
+                                <p className="text-xs text-red-500 mb-4">
+                                    ⚠️ {cycleActif.totalMembres - 1 - payes.length} paiement(s) non confirmé(s). Le cycle sera quand même clôturé.
+                                </p>
+                            )}
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    onClick={() => setShowCloture(false)}
+                                    className="py-3 rounded-xl text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
+                                >
+                                    Annuler
+                                </button>
+                                <button
+                                    onClick={handleCloturerCycle}
+                                    disabled={cloture}
+                                    className="py-3 rounded-xl text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300 transition-colors"
+                                >
+                                    {cloture ? 'Clôture...' : 'Confirmer'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {cycleActif ? (
                     <div className="bg-white rounded-2xl border border-amber-100 p-5">
                         <div className="flex items-start justify-between gap-3 mb-4">
@@ -241,6 +348,14 @@ const Groupe = () => {
                                 {cycleActif.nombrePaie} / {cycleActif.totalMembres - 1} payé(s)
                             </span>
                         </div>
+                        {isAdmin && (
+                            <button
+                                onClick={() => setShowCloture(true)}
+                                className="mt-4 w-full border border-amber-300 text-amber-700 hover:bg-amber-50 text-sm font-medium py-2.5 rounded-xl transition-colors"
+                            >
+                                Verser le pot et clôturer le cycle
+                            </button>
+                        )}
                     </div>
                 ) : isAdmin ? (
                     <div className="bg-white rounded-2xl border border-amber-100 p-6 text-center">
@@ -479,6 +594,44 @@ const Groupe = () => {
                                 )}
                             </div>
                         )}
+                    </div>
+                )}
+
+                {/* Demandes en attente */}
+                {isAdmin && demandesEnAttente.length > 0 && (
+                    <div className="bg-white rounded-2xl border border-amber-200 p-5">
+                        <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                            Demandes en attente
+                            <span className="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                                {demandesEnAttente.length}
+                            </span>
+                        </h3>
+                        <div className="space-y-3">
+                            {demandesEnAttente.map(m => (
+                                <div key={m.id} className="flex items-center justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-medium text-gray-800 truncate">
+                                            {m.prenom} {m.nom}
+                                        </p>
+                                        <p className="text-xs text-gray-400 truncate">{m.telephone}</p>
+                                    </div>
+                                    <div className="flex gap-2 flex-shrink-0">
+                                        <button
+                                            onClick={() => handleApprouver(m.id)}
+                                            className="bg-green-600 hover:bg-green-700 text-white text-xs font-medium px-3 py-2 rounded-xl transition-colors active:scale-95"
+                                        >
+                                            Accepter
+                                        </button>
+                                        <button
+                                            onClick={() => handleRejeter(m.id)}
+                                            className="bg-red-50 hover:bg-red-100 text-red-700 text-xs font-medium px-3 py-2 rounded-xl transition-colors active:scale-95"
+                                        >
+                                            Refuser
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 )}
 
